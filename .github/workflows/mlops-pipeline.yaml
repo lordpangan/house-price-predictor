@@ -10,7 +10,7 @@ on:
       run_data_processing:
         description: 'Run data processing job'
         required: false
-        default: 'fase'
+        default: 'false'
       run_model_training:
         description: 'Run model training job'
         required: false
@@ -21,7 +21,34 @@ on:
         default: 'false'
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      run_dp: ${{ steps.set.outputs.run_dp }}
+      run_tr: ${{ steps.set.outputs.run_tr }}
+      run_bu: ${{ steps.set.outputs.run_bu }}
+    steps:
+      - id: set
+        run: |
+          RUN_ALL=${{ fromJSON(github.event.inputs.run_all || 'false') }}
+          RUN_DP=${{ fromJSON(github.event.inputs.run_data_processing || 'false') }}
+          RUN_TR=${{ fromJSON(github.event.inputs.run_model_training || 'false') }}
+          RUN_BU=${{ fromJSON(github.event.inputs.run_build_and_publish || 'false') }}
+
+          # Cascade downstream selections to upstream deps
+          if [ "$RUN_TR" = "true" ] || [ "$RUN_BU" = "true" ]; then RUN_DP=true; fi
+          if [ "$RUN_BU" = "true" ]; then RUN_TR=true; fi
+
+          # If run_all=true, force everything true
+          if [ "$RUN_ALL" = "true" ]; then RUN_DP=true; RUN_TR=true; RUN_BU=true; fi
+
+          echo "run_dp=$RUN_DP" >> "$GITHUB_OUTPUT"
+          echo "run_tr=$RUN_TR" >> "$GITHUB_OUTPUT"
+          echo "run_bu=$RUN_BU" >> "$GITHUB_OUTPUT"
+
   data-processing:
+    needs: [plan]
+    if: ${{ fromJSON(needs.plan.outputs.run_dp) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -63,8 +90,9 @@ jobs:
           path: models/trained/preprocessor.pkl
   
   model-training:
+    needs: [plan, data-processing]
+    if: ${{ fromJSON(needs.plan.outputs.run_tr) }}
     runs-on: ubuntu-latest
-    needs: data-processing
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -119,8 +147,9 @@ jobs:
           docker rm mlflow-server
 
   build-and-publish:
+    needs: [plan, model-training]
+    if: ${{ fromJSON(needs.plan.outputs.run_bu) }}
     runs-on: ubuntu-latest
-    needs: model-training
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
