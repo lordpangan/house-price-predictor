@@ -10,7 +10,7 @@ on:
       run_data_processing:
         description: 'Run data processing job'
         required: false
-        default: 'fase'
+        default: 'false'
       run_model_training:
         description: 'Run model training job'
         required: false
@@ -22,6 +22,7 @@ on:
 
 jobs:
   data-processing:
+    if: ${{ fromJSON(github.event.inputs.run_all || 'false') || fromJSON(github.event.inputs.run_data_processing || 'false') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -63,6 +64,7 @@ jobs:
           path: models/trained/preprocessor.pkl
   
   model-training:
+    if: ${{ fromJSON(github.event.inputs.run_all || 'false') || fromJSON(github.event.inputs.run_model_training || 'false') }}
     runs-on: ubuntu-latest
     needs: data-processing
     steps:
@@ -119,6 +121,7 @@ jobs:
           docker rm mlflow-server
 
   build-and-publish:
+    if: ${{ fromJSON(github.event.inputs.run_all || 'false') || fromJSON(github.event.inputs.run_build_and_publish || 'false') }}
     runs-on: ubuntu-latest
     needs: model-training
     steps:
