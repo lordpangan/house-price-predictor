@@ -139,7 +139,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: trained-model
-          path: models/
+          path: models/trained/
 
       - name: Clean up MLFlow
         run: |
@@ -168,6 +168,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: preprocessor
+          path: models/trained/
+
+      - name: Download trained-model
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
           path: models/trained/
 
       - name: Setup Docker Buildx
